@@ -6,30 +6,75 @@ export interface GenerationStep {
     highlightedCells?: { r: number, c: number }[];
 }
 
+// Define layouts for different grid sizes
+const horizontalEquations5x5 = [
+    { r: 0, c: 0 }, { r: 2, c: 0 }, { r: 4, c: 0 },
+];
+const verticalEquations5x5 = [
+    { r: 0, c: 0 }, { r: 0, c: 2 }, { r: 0, c: 4 },
+];
+const allEquationSlots5x5 = [
+    ...horizontalEquations5x5.map(pos => ({ ...pos, dir: 'h' as const })),
+    ...verticalEquations5x5.map(pos => ({ ...pos, dir: 'v' as const })),
+];
+
+const horizontalEquations11x9 = [
+    { r: 0, c: 2 }, { r: 0, c: 6 },
+    { r: 2, c: 0 }, { r: 2, c: 6 },
+    { r: 4, c: 2 },
+    { r: 6, c: 0 }, { r: 6, c: 6 },
+    { r: 8, c: 2 },
+];
+const verticalEquations11x9 = [
+    { r: 0, c: 0 }, { r: 0, c: 2 }, { r: 0, c: 6 }, { r: 0, c: 10 },
+    { r: 2, c: 4 }, { r: 2, c: 8 },
+    { r: 4, c: 2 }, { r: 4, c: 6 }, { r: 4, c: 10 },
+];
+const allEquationSlots11x9 = [
+    ...horizontalEquations11x9.map(pos => ({ ...pos, dir: 'h' as const })),
+    ...verticalEquations11x9.map(pos => ({ ...pos, dir: 'v' as const })),
+];
+
 
 const difficultySettings: Record<Difficulty, {
   operators: Operator[];
   numberRange: [number, number];
-  holes: number;
   maxResult: number;
+  rows: number;
+  cols: number;
+  horizontalEquations: { r: number; c: number }[];
+  verticalEquations: { r: number; c: number }[];
+  allEquationSlots: { r: number; c: number; dir: 'h' | 'v' }[];
 }> = {
   [Difficulty.Easy]: {
-    operators: ['+', '-'] as Operator[],
-    numberRange: [1, 20],
-    holes: 4, 
-    maxResult: 100,
+    operators: ['+', '-'],
+    numberRange: [1, 10],
+    maxResult: 20,
+    rows: 5,
+    cols: 5,
+    horizontalEquations: horizontalEquations5x5,
+    verticalEquations: verticalEquations5x5,
+    allEquationSlots: allEquationSlots5x5,
   },
   [Difficulty.Medium]: {
-    operators: ['+', '-', '×'] as Operator[],
+    operators: ['+', '-', '×'],
     numberRange: [1, 30],
-    holes: 8,
     maxResult: 200,
+    rows: 9,
+    cols: 11,
+    horizontalEquations: horizontalEquations11x9,
+    verticalEquations: verticalEquations11x9,
+    allEquationSlots: allEquationSlots11x9,
   },
   [Difficulty.Hard]: {
-    operators: ['+', '-', '×', '÷'] as Operator[],
+    operators: ['+', '-', '×', '÷'],
     numberRange: [2, 50],
-    holes: 12,
     maxResult: 300,
+    rows: 9,
+    cols: 11,
+    horizontalEquations: horizontalEquations11x9,
+    verticalEquations: verticalEquations11x9,
+    allEquationSlots: allEquationSlots11x9,
   },
 };
 
@@ -58,42 +103,9 @@ const performOperation = (a: number, op: Operator, b: number): number => {
 
 const cloneGrid = (grid: CellValue[][]): CellValue[][] => grid.map(row => [...row]);
 
-const ROWS = 9;
-const COLS = 11;
-
-
-// Define the new, fuller layout of our puzzle
-const horizontalEquations = [
-    { r: 0, c: 2 },
-    { r: 0, c: 6 },
-    { r: 2, c: 0 },
-    { r: 2, c: 6 },
-    { r: 4, c: 2 },
-    { r: 6, c: 0 },
-    { r: 6, c: 6 },
-    { r: 8, c: 2 },
-];
-
-const verticalEquations = [
-    { r: 0, c: 0 },
-    { r: 0, c: 2 },
-    { r: 0, c: 6 },
-    { r: 0, c: 10 },
-    { r: 2, c: 4 },
-    { r: 2, c: 8 },
-    { r: 4, c: 2 },
-    { r: 4, c: 6 },
-    { r: 4, c: 10 },
-];
-
-const allEquationSlots = [
-    ...horizontalEquations.map(pos => ({ ...pos, dir: 'h' as const })),
-    ...verticalEquations.map(pos => ({ ...pos, dir: 'v' as const })),
-];
-
 
 const tryGeneratePuzzle = (settings: typeof difficultySettings[Difficulty], steps: GenerationStep[]): CellValue[][] | null => {
-    const { operators, numberRange, maxResult } = settings;
+    const { operators, numberRange, maxResult, rows, cols, allEquationSlots } = settings;
 
     const isValidResult = (result: number): boolean => {
         return Number.isInteger(result) && result >= 0 && result <= maxResult;
@@ -104,7 +116,7 @@ const tryGeneratePuzzle = (settings: typeof difficultySettings[Difficulty], step
     };
 
     for (let attempt = 0; attempt < 500; attempt++) {
-        const grid: CellValue[][] = Array(ROWS).fill(null).map(() => Array(COLS).fill(null));
+        const grid: CellValue[][] = Array(rows).fill(null).map(() => Array(cols).fill(null));
         let success = true;
         const shuffledSlots = shuffle([...allEquationSlots]);
 
@@ -174,19 +186,21 @@ const tryGeneratePuzzle = (settings: typeof difficultySettings[Difficulty], step
         }
     }
 
-    addStep("Konnte kein perfektes Raster finden. Starte neu...", Array(ROWS).fill(null).map(() => Array(COLS).fill(null)));
+    addStep("Konnte kein perfektes Raster finden. Starte neu...", Array(rows).fill(null).map(() => Array(cols).fill(null)));
     return null; // Failure
 };
 
 export const generatePuzzleWithSteps = (difficulty: Difficulty): { puzzle: CellData[][], solution: CellValue[][], steps: GenerationStep[] } => {
   const settings = difficultySettings[difficulty];
+  const { rows, cols, horizontalEquations, verticalEquations } = settings;
+
   let solution: CellValue[][] | null = null;
   let allSteps: GenerationStep[] = [];
   let attempt = 1;
 
   while(!solution) {
       let currentSteps: GenerationStep[] = [];
-      currentSteps.push({grid: Array(ROWS).fill(null).map(() => Array(COLS).fill(null)), message: `Suche nach einer gültigen Lösung... Versuch #${attempt}`});
+      currentSteps.push({grid: Array(rows).fill(null).map(() => Array(cols).fill(null)), message: `Suche nach einer gültigen Lösung... Versuch #${attempt}`});
       solution = tryGeneratePuzzle(settings, currentSteps);
       allSteps.push(...currentSteps);
       attempt++;

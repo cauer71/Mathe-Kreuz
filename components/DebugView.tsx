@@ -43,15 +43,22 @@ const DebugView: React.FC<DebugViewProps> = ({ steps, onComplete }) => {
     const cellValue = displayedGrid[r]?.[c];
     if (cellValue === null || cellValue === undefined) return '';
 
+    const is5x5 = displayedGrid[0]?.length === 5;
     const isHighlighted = steps[currentStepIndex]?.highlightedCells?.some(cell => cell.r === r && cell.c === c);
     
-    // Matched sizes with GameBoard for 11x9
-    let baseClass = 'w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 flex items-center justify-center text-base sm:text-lg md:text-xl font-bold rounded-full transition-all duration-300';
+    const sizeClass = is5x5 
+        ? 'w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 text-xl sm:text-2xl md:text-3xl'
+        : 'w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 text-base sm:text-lg md:text-xl';
+    const operatorTextSize = is5x5
+        ? 'text-2xl sm:text-3xl md:text-4xl'
+        : 'text-lg sm:text-xl md:text-2xl';
+
+    let baseClass = `${sizeClass} flex items-center justify-center font-bold rounded-full transition-all duration-300`;
 
     if (typeof cellValue === 'number') {
         baseClass += ' bg-slate-700 text-white shadow-md';
     } else if (cellValue) { // Operator or equals
-        return 'w-full h-full flex items-center justify-center text-lg sm:text-xl md:text-2xl font-bold text-slate-500';
+        return `w-full h-full flex items-center justify-center ${operatorTextSize} font-bold text-slate-500`;
     } else {
         baseClass += ' bg-stone-300';
     }
@@ -63,12 +70,13 @@ const DebugView: React.FC<DebugViewProps> = ({ steps, onComplete }) => {
     return baseClass;
   };
 
-  const ROWS = 9;
-  const COLS = 11;
+  const ROWS = displayedGrid.length || 0;
+  const COLS = displayedGrid[0]?.length || 0;
+  const gridColsClass = COLS === 5 ? 'grid-cols-5' : 'grid-cols-11';
 
   return (
     <div className="relative p-2 md:p-4 bg-stone-200 rounded-2xl shadow-lg border-4 border-stone-300 flex flex-col items-center">
-      <div className="grid grid-cols-11 gap-1 sm:gap-1.5 items-center justify-items-center">
+      <div className={`grid ${gridColsClass} gap-1 sm:gap-1.5 items-center justify-items-center`}>
         {Array.from({ length: ROWS * COLS }).map((_, index) => {
           const r = Math.floor(index / COLS);
           const c = index % COLS;

@@ -3,6 +3,24 @@ import { Difficulty, CellData } from './types';
 import { generatePuzzleWithSteps } from './services/puzzleGenerator';
 import GameBoard from './components/GameBoard';
 import Controls from './components/Controls';
+import NumberBank from './components/NumberBank';
+
+const gridDimensions: Record<Difficulty, { rows: number; cols: number }> = {
+  [Difficulty.Easy]: { rows: 5, cols: 5 },
+  [Difficulty.Medium]: { rows: 9, cols: 11 },
+  [Difficulty.Hard]: { rows: 9, cols: 11 },
+};
+
+const shuffle = <T,>(array: T[]): T[] => {
+  let currentIndex = array.length, randomIndex;
+  while (currentIndex !== 0) {
+    randomIndex = Math.floor(Math.random() * currentIndex);
+    currentIndex--;
+    [array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]];
+  }
+  return array;
+};
+
 
 const App: React.FC = () => {
   const [difficulty, setDifficulty] = useState<Difficulty>(Difficulty.Easy);
@@ -11,6 +29,7 @@ const App: React.FC = () => {
   const [isGameWon, setIsGameWon] = useState(false);
   const [revealedCells, setRevealedCells] = useState<Set<string>>(new Set());
   const [isGenerating, setIsGenerating] = useState(true);
+  const [numberBank, setNumberBank] = useState<number[]>([]);
 
   const startNewGame = useCallback(() => {
     setIsGenerating(true);
@@ -18,12 +37,21 @@ const App: React.FC = () => {
     setUserInputs({});
     setIsGameWon(false);
     setRevealedCells(new Set());
+    setNumberBank([]);
     
     // Run generation in a timeout to allow UI to update to "generating" state
     setTimeout(() => {
         try {
             const { puzzle: newPuzzle } = generatePuzzleWithSteps(difficulty);
             setPuzzle(newPuzzle);
+
+            if (difficulty === Difficulty.Easy) {
+                const numbers = newPuzzle.flat()
+                    .filter(cell => cell.isInput)
+                    .map(cell => cell.value as number);
+                setNumberBank(shuffle(numbers));
+            }
+
         } catch (e) {
             console.error("Fehler bei der Rätselgenerierung:", e);
             alert("Das Rätsel konnte nicht erstellt werden. Bitte versuchen Sie es erneut.");
@@ -50,6 +78,11 @@ const App: React.FC = () => {
       )
     );
   };
+
+  const handleDrop = (key: string, value: string) => {
+    // Drop logic is identical to input change
+    handleInputChange(key, value);
+  }
   
   const handleDifficultyChange = (newDifficulty: Difficulty) => {
     setDifficulty(newDifficulty);
@@ -100,11 +133,16 @@ const App: React.FC = () => {
 
     if (unsolvedCells.length > 0) {
       const cellToReveal = unsolvedCells[Math.floor(Math.random() * unsolvedCells.length)];
-      setUserInputs(prev => ({ ...prev, [cellToReveal.key]: String(cellToReveal.value) }));
+      handleInputChange(cellToReveal.key, String(cellToReveal.value));
       setRevealedCells(prev => new Set(prev).add(cellToReveal.key));
     }
   };
 
+  const { rows, cols } = gridDimensions[difficulty];
+  const placeholderGridColsClass = cols === 5 ? 'grid-cols-5' : 'grid-cols-11';
+  const placeholderCellSizeClass = cols === 5 
+      ? 'w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16' 
+      : 'w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10';
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 text-slate-800 font-sans">
@@ -116,10 +154,10 @@ const App: React.FC = () => {
       <main className="relative flex flex-col items-center">
         {isGenerating ? (
             <div className="p-2 md:p-4 bg-stone-200 rounded-2xl shadow-lg border-4 border-stone-300">
-                <div className="grid grid-cols-11 gap-1 sm:gap-1.5 items-center justify-items-center opacity-0">
+                <div className={`grid ${placeholderGridColsClass} gap-1 sm:gap-1.5 items-center justify-items-center opacity-0`}>
                  {/* Placeholder grid for sizing */}
-                 {Array.from({ length: 9 * 11 }).map((_, i) => (
-                    <div key={i} className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-full bg-stone-300" />
+                 {Array.from({ length: rows * cols }).map((_, i) => (
+                    <div key={i} className={`${placeholderCellSizeClass} rounded-full bg-stone-300`} />
                 ))}
                 </div>
                  <div className="absolute inset-0 flex items-center justify-center">
@@ -131,10 +169,16 @@ const App: React.FC = () => {
               puzzle={puzzle} 
               userInputs={userInputs}
               onInputChange={handleInputChange}
+              onDrop={handleDrop}
               isGameWon={isGameWon}
               revealedCells={revealedCells}
+              difficulty={difficulty}
             />
         ) : null}
+
+        {difficulty === Difficulty.Easy && !isGenerating && numberBank.length > 0 && !isGameWon && (
+            <NumberBank numbers={numberBank} userInputs={userInputs} />
+        )}
         
         <Controls 
           currentDifficulty={difficulty}
